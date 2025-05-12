@@ -164,4 +164,4 @@ theorem moore_to_mealey_same_io_behavior
       intro s
       unfold transduce_helper
       simp
-      rw [tail_ih]
+      -- rw [tail_ih]
