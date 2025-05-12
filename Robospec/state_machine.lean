@@ -49,13 +49,13 @@ def counter_mod_3 :
   s0 := 0,
 
   -- if you match instead on `x, y`, you get an error about missing cases
-  transition := fun x y =>
-    match y, x with
-    | 0, _ => x
+  transition := fun s i =>
+    match i, s with
+    | 0, _ => s
     | 1, 0 => 1
     | 1, 1 => 2
     | 1, 2 => 0
-  output := fun x _ => x
+  output := fun s _ => s
 }
 
 def moore_to_mealey (i o: Type) (moore : StateMachine .Moore i o ) : StateMachine .Mealey i o
