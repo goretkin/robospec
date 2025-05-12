@@ -38,30 +38,22 @@ where
   | .Moore => state_space -> output_space
   | .Mealey => state_space -> input_space -> output_space
 
-inductive TwoThings where
-  | zero
-  | one
-
-inductive ThreeThings where
-  | zero
-  | one
-  | two
-
 -- This is a machine that outputs the count, mod 3, of how many times a `one` came in
 def counter_mod_3 :
   StateMachine
     .Mealey
-    (input_space := TwoThings)
-    (output_space := ThreeThings)
+    (input_space := Fin 2)
+    (output_space := Fin 3)
 := {
-  state_space := ThreeThings,
-  s0 := ThreeThings.zero,
+  state_space := Fin 3,
+  s0 := 0,
   transition := fun x y =>
-    match x, y with
-    | _, .zero => x
-    | .zero, .one => .one
-    | .one, .one => .two
-    | .two, .one => .zero,
+    match x.val, y.val with
+    | _, 0 => x
+    | 0, 1 => ⟨1, by decide⟩
+    | 1, 1 => ⟨2, by decide⟩
+    | 2, 1 => ⟨0, by decide⟩
+    | _, _ => panic! "unreachable",
   output := fun x _ => x
 }
 
@@ -117,9 +109,10 @@ def transduce_helper
 def transduce (mt : StateMachineType) (i o : Type) machine ys :=
   transduce_helper mt i o machine machine.s0 ys
 
-def input := [TwoThings.zero, .one, .one, .zero, .one, .one]
+
+def input : List (Fin 2) := [0, 1, 1, 0, 1, 1]
 def output := transduce _ _ _ counter_mod_3 input
-#reduce output
+#reduce output.map (fun n => n.val)
 
 
 -- This is my first time seeing a dependent fold, where the "accumulator" changes type
