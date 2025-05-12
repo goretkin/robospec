@@ -47,13 +47,14 @@ def counter_mod_3 :
 := {
   state_space := Fin 3,
   s0 := 0,
+
+  -- if you match instead on `x, y`, you get an error about missing cases
   transition := fun x y =>
-    match x.val, y.val with
-    | _, 0 => x
-    | 0, 1 => ⟨1, by decide⟩
-    | 1, 1 => ⟨2, by decide⟩
-    | 2, 1 => ⟨0, by decide⟩
-    | _, _ => panic! "unreachable",
+    match y, x with
+    | 0, _ => x
+    | 1, 0 => 1
+    | 1, 1 => 2
+    | 1, 2 => 0
   output := fun x _ => x
 }
 
