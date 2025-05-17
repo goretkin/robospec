@@ -191,10 +191,10 @@ def mealey_to_moore_i (i o: Type) (i1 : i) (mealey : StateMachine .Mealey i o ) 
 
 namespace test2
 def mealey := counter_mod_3
-def input := [TwoThings.zero, .one, .one, .zero, .one, .one]
+def input : List (Fin 2) := [0, 1, 1, 0, 1, 1]
 def output_mealey := transduce _ _ _ mealey input
-def arb_i := TwoThings.one
-def arb_o := ThreeThings.one
+def arb_i : (Fin 2) := 1
+def arb_o : (Fin 3) := 1
 def moore_i := mealey_to_moore_i _ _ arb_i mealey
 def moore_o := mealey_to_moore_o _ _ arb_o mealey
 
