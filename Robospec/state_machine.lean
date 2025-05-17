@@ -11,6 +11,8 @@
 
 -- A Moore machine is the same, except the output function can only depend on the state, and not the input
 
+-- We prove that the Moore and Mealey formalisms are equivalent.
+
 inductive StateMachineType
   -- [tag:state_machine_type_cases_order]
   | Moore
@@ -63,7 +65,7 @@ def moore_to_mealey (i o: Type) (moore : StateMachine .Moore i o ) : StateMachin
   state_space := moore.state_space,
   s0 := moore.s0,
   transition := moore.transition
-  output := fun x _ => moore.output x
+  output := fun s _ => moore.output s
 }
 
 -- just debugging stuff
@@ -100,8 +102,8 @@ def transduce_helper
       )
       mt
       -- [ref:state_machine_type_cases_order]
-      (fun f => f current_state)
-      (fun f => f current_state y)
+      (fun f => f next_state)
+      (fun f => f next_state y)
     )
 
     let next_output := make_next_output machine.output
@@ -110,11 +112,11 @@ def transduce_helper
 def transduce (mt : StateMachineType) (i o : Type) machine ys :=
   transduce_helper mt i o machine machine.s0 ys
 
-
+namespace test
 def input : List (Fin 2) := [0, 1, 1, 0, 1, 1]
 def output := transduce _ _ _ counter_mod_3 input
 #reduce output.map (fun n => n.val)
-
+end test
 
 -- This is my first time seeing a dependent fold, where the "accumulator" changes type
 -- (Yes, I have an imperative for-loop-y brain)
@@ -142,12 +144,7 @@ theorem moore_to_mealey_same_io_behavior
   unfold transduce moore_to_mealey
   simp
   generalize H : moore.s0 = s
-  conv =>
-    rhs
-    rw [← H]
-    congr
-    . rw [H]
-    . skip
+  rewrite (config := {occs := .pos [2]}) [← H]
   clear H
   revert s
   induction is with
@@ -159,3 +156,105 @@ theorem moore_to_mealey_same_io_behavior
       unfold transduce_helper
       simp
       rw [tail_ih]
+
+-- This is a construction where the state is augmented with the output
+structure MooreStateFromMealeyO (state_space output_space: Type)
+where
+  s : state_space
+  o : output_space
+
+def mealey_to_moore_o (i o: Type) (o1 : o) (mealey : StateMachine .Mealey i o ) : StateMachine .Moore i o
+:= {
+  state_space := MooreStateFromMealeyO mealey.state_space o,
+  s0 := {s := mealey.s0, o := o1},
+  transition := fun s i =>
+    let s' := mealey.transition s.s i
+    {s := s', o := mealey.output s' i}
+  output := fun s => s.o
+}
+
+-- This is a construction where the state is augmented with the input
+structure MooreStateFromMealeyI (state_space input_space: Type)
+where
+  s : state_space
+  i : input_space
+
+def mealey_to_moore_i (i o: Type) (i1 : i) (mealey : StateMachine .Mealey i o ) : StateMachine .Moore i o
+:= {
+  state_space := MooreStateFromMealeyI mealey.state_space i,
+  s0 := {s := mealey.s0, i := i1},
+  transition := fun s i =>
+    let s' := mealey.transition s.s i
+    {s := s', i := i}
+  output := fun s => mealey.output s.s s.i
+}
+
+namespace test2
+def mealey := counter_mod_3
+def input := [TwoThings.zero, .one, .one, .zero, .one, .one]
+def output_mealey := transduce _ _ _ mealey input
+def arb_i := TwoThings.one
+def arb_o := ThreeThings.one
+def moore_i := mealey_to_moore_i _ _ arb_i mealey
+def moore_o := mealey_to_moore_o _ _ arb_o mealey
+
+def output_moore_i := transduce _ _ _ moore_i input
+def output_moore_o := transduce _ _ _ moore_o input
+
+-- all of these are the same
+#reduce output_mealey
+#reduce output_moore_i
+#reduce output_moore_o
+end test2
+
+
+theorem mealey_to_moore_o_same_io_behavior
+  (i o: Type) (mealey : StateMachine .Mealey i o) (is : List i) (o1 : o):
+  let moore := (mealey_to_moore_o _ _ o1 mealey)
+  transduce _ _ _ mealey is = transduce _ _ _ moore is
+:= by
+  unfold transduce
+  unfold mealey_to_moore_o
+  simp -- get rid of let
+  generalize H : mealey.s0 = s
+  rewrite (config := {occs := .pos [2]}) [← H]
+  clear H
+  generalize H2 : o1 = o2
+  rewrite (config := {occs := .pos [1]}) [← H2]
+  clear H2
+  revert s o2
+  induction is with
+  | nil =>
+      intro s o1
+      rfl
+  | cons head tail tail_ih =>
+      intro s o1
+      unfold transduce_helper
+      simp
+      rw [tail_ih _ (mealey.output (mealey.transition s head) head)]
+
+theorem mealey_to_moore_i_same_io_behavior
+  (i o: Type) (mealey : StateMachine .Mealey i o) (is : List i) (i1 : i):
+  let moore := (mealey_to_moore_i _ _ i1 mealey)
+  transduce _ _ _ mealey is = transduce _ _ _ moore is
+:= by
+  unfold transduce
+  unfold mealey_to_moore_i
+  simp -- get rid of let
+  generalize H : mealey.s0 = s
+  rewrite (config := {occs := .pos [2]}) [← H]
+  clear H
+  generalize H2 : i1 = i2
+  rewrite (config := {occs := .pos [1]}) [← H2]
+  clear H2
+  revert s i2
+  induction is with
+  | nil =>
+      intro s o1
+      rfl
+  | cons head tail tail_ih =>
+      intro s o1
+      unfold transduce_helper
+      simp
+      -- https://chatgpt.com/share/67c9d856-5aec-800a-8646-5ebb8d0e5497
+      rw [tail_ih _ head]
